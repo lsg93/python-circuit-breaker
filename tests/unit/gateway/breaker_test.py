@@ -29,8 +29,34 @@ def test_breaker_opens_circuit_and_prevents_subsequent_requests_after_failure_th
     cb.assert_called_once()
 
 
-# def test_breaker_opens_circuit_only_when_failures_occur_in_given_time_period():
-# todo
+def test_breaker_remains_closed_when_failures_occur_outside_of_given_time_period(
+    time_machine,
+):
+    cb = Mock(return_value=None, side_effect=Exception)
+
+    time_machine.move_to(1)
+    breaker = Breaker(callback=cb, failure_amount=2, failure_period=60 * 60 * 24)
+    breaker()
+
+    time_machine.shift((60 * 60 * 24) + 2)
+    breaker()
+
+    assert cb.call_count == 2
+
+
+def test_breaker_opens_circuit_only_when_failures_occur_inside_given_time_period(
+    time_machine,
+):
+    cb = Mock(return_value=None, side_effect=Exception)
+
+    time_machine.move_to(1)
+    breaker = Breaker(callback=cb, failure_amount=2, failure_period=60 * 60 * 24)
+    breaker()
+
+    time_machine.shift((60 * 60 * 24) + 2)
+    breaker()
+
+    assert cb.call_count == 2
 
 
 # def test_breaker_independently_checks_if_callback_works_while_failure_state_is_active():

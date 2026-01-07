@@ -28,20 +28,32 @@ class Breaker:
             raise BreakerCircuitOpenException()
 
     def check_failures_have_occurred_in_period(self):
-        return True
+        # Get the last failure_amount of failures in the window
+        # And check if the gap in seconds between first and last failure is less than given failure period.
+
+        recent_failures = self.window[-self.failure_amount :]
+        first = recent_failures[0]
+        last = recent_failures[-1]
+
+        print(recent_failures)
+        print({"first": first, "last": last})
+        print(self.failure_period)
+        print((last - first) > self.failure_period)
+
+        if (last - first) >= self.failure_period:
+            return True
+
+        return False
 
     def process_failure(self):
         # Add a timestamp to the array
-        print("here??")
         self.window.append(time.time())
-        # Look at the count and period properties, and then get the number of timestamps in the array within that threshold
-        if (
-            len(self.window) >= self.failure_amount
-            and self.check_failures_have_occurred_in_period()
-        ):
-            self.trip_breaker()
+
+        if self.check_failures_have_occurred_in_period():
+            self.open_circuit()
             return
         return
 
-    def trip_breaker(self):
+    def open_circuit(self):
         self.state = "Open"
+        return
