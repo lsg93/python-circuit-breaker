@@ -1,3 +1,4 @@
+import time
 from unittest.mock import Mock
 
 import pytest
@@ -34,7 +35,7 @@ def test_breaker_remains_closed_when_failures_occur_outside_of_given_time_period
 ):
     cb = Mock(return_value=None, side_effect=Exception)
 
-    time_machine.move_to(0)
+    time_machine.move_to(time.time())
     breaker = Breaker(callback=cb, failure_amount=2, failure_period=60 * 60 * 24)
     breaker()
 
@@ -49,19 +50,40 @@ def test_breaker_opens_circuit_only_when_failures_occur_inside_given_time_period
 ):
     cb = Mock(return_value=None, side_effect=Exception)
 
-    time_machine.move_to(0)
+    time_machine.move_to(time.time())
     breaker = Breaker(callback=cb, failure_amount=1, failure_period=60 * 60 * 24)
     breaker()
 
     time_machine.shift((60 * 60 * 24) + 1)
+    breaker()
+
     with pytest.raises(BreakerCircuitOpenException):
         breaker()
 
-    assert cb.call_count == 1
+    assert cb.call_count == 2
+
+def test_breaker_
 
 
-# def test_breaker_closes_circuit_when_callback_is_succesful_while_circuit_is_open():
-#     #todo
+def test_breaker_closes_circuit_when_callback_is_succesful_while_circuit_is_open(
+    time_machine,
+):
+    # We want our mock to fail, then succeed for the purposes of this test.
+    cb = Mock(return_value=None, side_effect=[Exception, None])
+
+    time_machine.move_to(time.time())
+    breaker = Breaker(
+        callback=cb, failure_amount=1, failure_period=60 * 60 * 24, retry_after=60
+    )
+
+    breaker()
+
+    with pytest.raises(BreakerCircuitOpenException):
+        breaker()
+
+    # If no exception is raised as a result of this call, then state has successfully been reset.
+    time_machine.shift(61)
+    breaker()
 
 
 # stretch goal here...
