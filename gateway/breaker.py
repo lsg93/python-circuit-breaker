@@ -21,17 +21,24 @@ class Breaker:
     window: list = field(default_factory=list)
 
     def __call__(self):
-        if self.state == "Closed" or (
-            self.state != "Closed" and self.should_attempt_to_open_circuit()
-        ):
+        if self.state != "Open":
             try:
-                pprint.pprint("attempting callback")
-                return self.callback()
+                result = self.callback()
+
+                if self.state == "Half-Open":
+                    # Reset window
+                    self.window = []
+                    self.set_circuit_state("Closed")
+
+                return result
             except Exception as e:
-                # The caught exception should be rethrown for further use in any logic.
+                # Process the failure
                 self.process_failure()
-                return e
+                # The caught exception should be rethrown for further use in any logic.
+                raise e
         else:
+            if self.state == "Open":
+                self.check_retry_period()
             raise BreakerCircuitOpenException
 
     def check_failures_have_occurred_in_period(self):
@@ -48,39 +55,32 @@ class Breaker:
         failures_slice = self.window[-self.failure_amount :]
 
         # Calculate the time time between the earliest and most recent failure
+        # If the gap is more than the failure period, open the circuit and prevent future attempts at running the callback.
         first_failure = failures_slice[0]
         last_failure = failures_slice[-1]
 
         return last_failure - first_failure <= self.failure_period
 
     def process_failure(self):
-        # Add a timestamp to the array
-
+        # Add a timestamp to the 'window' array
         self.window.append(int(time.time()))
 
         if self.check_failures_have_occurred_in_period():
-            self.open_circuit()
-            return
+            pprint.pprint("Failures have happened in given period - open circuit.")
+            self.set_circuit_state("Open")
+
         return
 
-    def should_attempt_to_open_circuit(self):
+    def check_retry_period(self):
         if len(self.window) == 0:
-            return False
+            return
 
         most_recent_failure = self.window[-1]
 
-        # Enough time has passed since most recent failure to try again.
+        # Enough time has passed since most recent failure to allow one request through.
         if (int(time.time()) - most_recent_failure) > self.retry_after:
-            self.close_circuit()
-            self.window = []  # Reset the window
-            return True
-        return False
+            self.set_circuit_state("Half-Open")
 
-    # The following two methods could be dataclass properties maybe for conciseness sake?
-    def close_circuit(self):
-        self.state = "Closed"
-        return
-
-    def open_circuit(self):
-        self.state = "Open"
+    def set_circuit_state(self, state: str):
+        self.state = state
         return
