@@ -1,1 +1,9 @@
-Use gemini-cli to review once all code is complete.
+# Breaker
+
+- Allow for breaker to be created as both a decorator and a context manager.
+- Improve breaker tests by using fixtures and cutting down repetition. 
+- Breaker tests might want to be a class too?
+
+# Gateway
+
+- ???

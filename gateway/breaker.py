@@ -1,4 +1,3 @@
-import pprint
 import time
 from dataclasses import dataclass, field
 from typing import Callable
@@ -16,57 +15,60 @@ class Breaker:
     failure_amount: int = 5
     failure_period: int = 30
     retry_after: int = 6000
+    stable_at: int = 2
 
     state: str = "Closed"
     window: list = field(default_factory=list)
 
+    def __post_init__(self):
+        # This ensures the counter starts fresh based on the user's config
+        self.reset_success_counter()
+
     def __call__(self):
+        # Run checks first to make sure state is correct before checking whether callback can be run.
+        if self.state == "Open":
+            self.check_retry_period()
+
+            # If state has not been reset, exit early.
+            if self.state == "Open":
+                self.reset_success_counter()
+                raise BreakerCircuitOpenException
+
         if self.state != "Open":
             try:
                 result = self.callback()
-
-                if self.state == "Half-Open":
-                    # Reset window
-                    self.window = []
-                    self.set_circuit_state("Closed")
-
+                self.check_stability()
                 return result
             except Exception as e:
                 # Process the failure
                 self.process_failure()
                 # The caught exception should be rethrown for further use in any logic.
                 raise e
-        else:
-            if self.state == "Open":
-                self.check_retry_period()
-            raise BreakerCircuitOpenException
 
     def check_failures_have_occurred_in_period(self):
-        # Early return - if the amount of failures does not exceed the defined threshold, no more work needs to be done.
-        if len(self.window) < self.failure_amount:
-            return
+        # Get all failures in the window that fall within the specified failure period.
+        now = int(time.time())
+        recent_failures = []
 
-        # Account for a failure threshold of 1 also.
-        if self.failure_amount == 1:
-            return True
+        for timestamp in self.window:
+            if now - timestamp <= self.failure_period:
+                recent_failures.append(timestamp)
 
-        # Get the last failures in the window specified as the threshold
-        # And check if the gap in seconds between first and last failure is less than given failure period.
-        failures_slice = self.window[-self.failure_amount :]
+        # # This also acts as a way of pruning the window.
+        # self.window = recent_failures
 
-        # Calculate the time time between the earliest and most recent failure
-        # If the gap is more than the failure period, open the circuit and prevent future attempts at running the callback.
-        first_failure = failures_slice[0]
-        last_failure = failures_slice[-1]
-
-        return last_failure - first_failure <= self.failure_period
+        return len(recent_failures) >= self.failure_amount
 
     def process_failure(self):
         # Add a timestamp to the 'window' array
         self.window.append(int(time.time()))
 
+        # If the request failed when the breaker was Half-Open, reset the state.
+        if self.state == "Half-Open":
+            self.set_circuit_state("Open")
+            return
+
         if self.check_failures_have_occurred_in_period():
-            pprint.pprint("Failures have happened in given period - open circuit.")
             self.set_circuit_state("Open")
 
         return
@@ -80,6 +82,17 @@ class Breaker:
         # Enough time has passed since most recent failure to allow one request through.
         if (int(time.time()) - most_recent_failure) > self.retry_after:
             self.set_circuit_state("Half-Open")
+
+    def check_stability(self):
+        self.successes_until_stable += 1
+        if self.successes_until_stable == 0:
+            self.reset_success_counter()
+            self.set_circuit_state("Closed")
+        return
+
+    def reset_success_counter(self):
+        self.successes_until_stable = -self.stable_at
+        return
 
     def set_circuit_state(self, state: str):
         self.state = state
