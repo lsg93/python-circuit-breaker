@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from gateway.breaker import Breaker, BreakerCircuitOpenException
+from breaker.breaker import Breaker, BreakerCircuitOpenException
 
 
 # Use a specific exception rather than relying on the base Exception class.
