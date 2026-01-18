@@ -5,13 +5,13 @@ ENDPOINT_URL = "/flaky-service"
 
 
 def make_request(client, mode: ServiceBehaviour | None = None):
-    response = client.get(f"{ENDPOINT_URL}/{mode}")
-    if response.json()["code"] not in [200, 201]:
+    response = client.get(f"{ENDPOINT_URL}/{mode.value}")
+    if response.json()["status"] not in [200, 201]:
         raise Exception
     return response
 
 
-def test_gateway_returns_503_when_breaker_trips(client):
+def test_breaker_trips_after_failing_more_than_threshold(client):
     attempts = 0
     failure_amount = 2
     breaker_instance = Breaker(failure_amount=failure_amount)

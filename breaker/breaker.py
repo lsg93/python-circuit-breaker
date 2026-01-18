@@ -1,5 +1,6 @@
 import time
 from dataclasses import dataclass, field
+from pprint import pprint
 
 
 class BreakerCircuitOpenException(Exception):
@@ -33,8 +34,9 @@ class Breaker:
 
         self.check_stability()
 
-    def __exit__(self, exc_type):
-        if exc_type is Exception:
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pprint(exc_type)
+        if exc_type is not None:
             # Process the failure
             self.process_failure()
             # The caught exception should be rethrown for further use in any logic.
