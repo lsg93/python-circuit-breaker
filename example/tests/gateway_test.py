@@ -1,5 +1,0 @@
-# def test_gateway_returns_503_when_breaker_trips
-
-# def test_gateway_resumes_service_after_retry_timeout
-
-# def test_gateway_ignores_client_errors_and_stays_closed

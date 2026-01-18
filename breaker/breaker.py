@@ -1,6 +1,5 @@
 import time
 from dataclasses import dataclass, field
-from typing import Callable
 
 
 class BreakerCircuitOpenException(Exception):
@@ -11,7 +10,6 @@ class BreakerCircuitOpenException(Exception):
 class Breaker:
     """Breaker class - prevents requests to external services from being made if the service is unreliable."""
 
-    callback: Callable
     failure_amount: int = 5
     failure_period: int = 30
     retry_after: int = 6000
@@ -24,8 +22,7 @@ class Breaker:
         # This ensures the counter starts fresh based on the user's config
         self.reset_success_counter()
 
-    def __call__(self):
-        # Run checks first to make sure state is correct before checking whether callback can be run.
+    def __enter__(self):
         if self.state == "Open":
             self.check_retry_period()
 
@@ -34,16 +31,15 @@ class Breaker:
                 self.reset_success_counter()
                 raise BreakerCircuitOpenException
 
-        if self.state != "Open":
-            try:
-                result = self.callback()
-                self.check_stability()
-                return result
-            except Exception as e:
-                # Process the failure
-                self.process_failure()
-                # The caught exception should be rethrown for further use in any logic.
-                raise e
+        self.check_stability()
+
+    def __exit__(self, exc_type):
+        if exc_type is Exception:
+            # Process the failure
+            self.process_failure()
+            # The caught exception should be rethrown for further use in any logic.
+            return False
+        return True
 
     def check_failures_have_occurred_in_period(self):
         # Get all failures in the window that fall within the specified failure period.
