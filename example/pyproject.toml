@@ -8,4 +8,5 @@ dependencies = [
     "fastapi[standard]>=0.128.0",
     "pytest>=9.0.2",
     "standard>=1.0.3",
+    "time-machine>=3.2.0",
 ]

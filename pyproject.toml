@@ -1,18 +1,10 @@
 [project]
 name = "python-circuit-breaker"
 version = "0.1.0"
-description = "Add your description here"
+description = "A simple circuit breaker implementation"
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = [
-    "fastapi[standard]>=0.128.0",
-    "httpx>=0.28.1",
-    "pytest>=9.0.2",
-]
-[tool.pytest.ini_options]
-pythonpath = ["."]
 
-[dependency-groups]
-dev = [
-    "time-machine>=3.2.0",
-]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
