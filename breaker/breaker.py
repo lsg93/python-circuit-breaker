@@ -1,6 +1,5 @@
 import time
 from dataclasses import dataclass, field
-from pprint import pprint
 
 
 class BreakerCircuitOpenException(Exception):
@@ -9,7 +8,9 @@ class BreakerCircuitOpenException(Exception):
 
 @dataclass
 class Breaker:
-    """Breaker class - prevents requests to external services from being made if the service is unreliable."""
+    """Breaker class - designed to prevent requests to external services from being made if the service is unreliable.
+    It should be used as a context manager.
+    """
 
     failure_amount: int = 5
     failure_period: int = 30
@@ -20,7 +21,6 @@ class Breaker:
     window: list = field(default_factory=list)
 
     def __post_init__(self):
-        # This ensures the counter starts fresh based on the user's config
         self.reset_success_counter()
 
     def __enter__(self):
@@ -32,15 +32,16 @@ class Breaker:
                 self.reset_success_counter()
                 raise BreakerCircuitOpenException
 
-        self.check_stability()
-
     def __exit__(self, exc_type, exc_val, exc_tb):
-        pprint(exc_type)
         if exc_type is not None:
             # Process the failure
             self.process_failure()
             # The caught exception should be rethrown for further use in any logic.
             return False
+
+        # Update success amount since no exception was raised.
+        self.check_stability()
+
         return True
 
     def check_failures_have_occurred_in_period(self):
@@ -52,8 +53,8 @@ class Breaker:
             if now - timestamp <= self.failure_period:
                 recent_failures.append(timestamp)
 
-        # # This also acts as a way of pruning the window.
-        # self.window = recent_failures
+        # This also acts as a way of pruning the window.
+        self.window = recent_failures
 
         return len(recent_failures) >= self.failure_amount
 
