@@ -1,5 +1,12 @@
 import time
 from dataclasses import dataclass, field
+from enum import Enum
+
+
+class BreakerState(Enum):
+    CLOSED = "Closed"
+    OPEN = "Open"
+    HALF_OPEN = "Half-Open"
 
 
 class BreakerCircuitOpenException(Exception):
@@ -17,18 +24,18 @@ class Breaker:
     retry_after: int = 6000
     stable_at: int = 2
 
-    state: str = "Closed"
+    state: str = BreakerState.CLOSED
     window: list = field(default_factory=list)
 
     def __post_init__(self):
         self.reset_success_counter()
 
     def __enter__(self):
-        if self.state == "Open":
+        if self.state == BreakerState.OPEN:
             self.check_retry_period()
 
             # If state has not been reset, exit early.
-            if self.state == "Open":
+            if self.state == BreakerState.OPEN:
                 self.reset_success_counter()
                 raise BreakerCircuitOpenException
 
@@ -63,12 +70,12 @@ class Breaker:
         self.window.append(int(time.time()))
 
         # If the request failed when the breaker was Half-Open, reset the state.
-        if self.state == "Half-Open":
-            self.set_circuit_state("Open")
+        if self.state == BreakerState.HALF_OPEN:
+            self.set_circuit_state(BreakerState.OPEN)
             return
 
         if self.check_failures_have_occurred_in_period():
-            self.set_circuit_state("Open")
+            self.set_circuit_state(BreakerState.OPEN)
 
         return
 
@@ -80,19 +87,19 @@ class Breaker:
 
         # Enough time has passed since most recent failure to allow one request through.
         if (int(time.time()) - most_recent_failure) > self.retry_after:
-            self.set_circuit_state("Half-Open")
+            self.set_circuit_state(BreakerState.HALF_OPEN)
 
     def check_stability(self):
         self.successes_until_stable += 1
         if self.successes_until_stable == 0:
             self.reset_success_counter()
-            self.set_circuit_state("Closed")
+            self.set_circuit_state(BreakerState.CLOSED)
         return
 
     def reset_success_counter(self):
         self.successes_until_stable = -self.stable_at
         return
 
-    def set_circuit_state(self, state: str):
+    def set_circuit_state(self, state: BreakerState):
         self.state = state
         return
